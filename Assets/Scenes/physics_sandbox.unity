@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 9734304}
   - component: {fileID: 9734303}
   - component: {fileID: 9734302}
+  - component: {fileID: 9734306}
   m_Layer: 0
   m_Name: Ball
   m_TagString: Untagged
@@ -231,6 +232,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &9734306
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9734301}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0415b634a501e8044aa109f7a8e22e17, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BallWarmup
+  gravity: 9.81
+  restitution_table: 0.99
+  restitution_floor: 0.5
+  tableHeight: 0.76
+  tableWidth: 1.525
+  tableLength: 2.74
+  ballRadius: 0.02
 --- !u!1 &203844586
 GameObject:
   m_ObjectHideFlags: 0
@@ -975,13 +995,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 961739749}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.08715578, y: 0, z: 0, w: 0.9961947}
-  m_LocalPosition: {x: 0, y: 1.5, z: -3.1}
+  m_LocalRotation: {x: 0.16042997, y: 0.37686962, z: -0.066452265, w: 0.9098438}
+  m_LocalPosition: {x: -2, y: 1.5, z: -3}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 10, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 20, y: 45, z: 0}
 --- !u!1 &1453827540
 GameObject:
   m_ObjectHideFlags: 0
@@ -1008,7 +1028,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.51523, y: 1, z: -1.51523}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2102715163}
