@@ -103,6 +103,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb3df21d259f88d4e887799756703eda, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BallSimulator
-  launchOnStart: 1
+  launchOnStart: 0
   testVelocity: {x: 0, y: 0, z: 0}
   debugSpeed: 0

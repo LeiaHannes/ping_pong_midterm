@@ -21,4 +21,12 @@ public static class PingPongSpec
     // Derived: drag deceleration = DragK * |v| * v
     public const float BallArea = Mathf.PI * BallRadius * BallRadius;
     public const float DragK = 0.5f * AirDensity * DragCoefficient * BallArea / BallMass;
+
+    // Collisions
+    public const float TableRestitution = 0.90f;  // calibrated: 30 cm drop -> ~23 cm bounce, with drag
+    public const float FloorRestitution = 0.5f;
+    public const float RestSpeed = 0.15f;         // bounce slower than this = stop bouncing
+    public const float RollingFriction = 0.03f;   // rolling resistance coefficient
+    public const float StopSpeed = 0.02f;         // rolling slower than this = stopped
+    public const float DeadZone = 6f;             // farther than this from the origin = dead
 }
