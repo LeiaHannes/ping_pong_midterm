@@ -29,4 +29,9 @@ public static class PingPongSpec
     public const float RollingFriction = 0.03f;   // rolling resistance coefficient
     public const float StopSpeed = 0.02f;         // rolling slower than this = stopped
     public const float DeadZone = 6f;             // farther than this from the origin = dead
+
+    // Net
+    public const float NetHalfWidth = TableWidth / 2f + NetOverhang;  // 0.915 m
+    public const float NetRestitution = 0.15f;  // speed bounced back toward the hitter
+    public const float NetDamping = 0.3f;       // fraction of sideways/vertical speed kept
 }

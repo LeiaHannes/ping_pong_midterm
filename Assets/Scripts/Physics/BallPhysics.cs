@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public static class BallPhysics
 {
@@ -35,6 +36,9 @@ public static class BallPhysics
         v += accel * dt;
         s.Position += v * dt;
         s.Velocity = v;
+
+        if (CollideNet(ref s, prev))
+            return;
 
         float r = PingPongSpec.BallRadius;
         float tableContactY = PingPongSpec.TableHeight + r;  // ball center height when touching table
@@ -74,6 +78,39 @@ public static class BallPhysics
         s.Velocity = v;
     }
 
+    // true if the ball hit the net during this substep
+    static bool CollideNet(ref BallState s, Vector3 prev)
+    {
+        float r = PingPongSpec.BallRadius;
+        float dz = s.Position.z - prev.z;
+
+        // The face of the net the ball is approaching
+        float contactZ = dz > 0f ? -r : r;
+
+        bool crossed = dz > 0f
+            ? prev.z <= contactZ && s.Position.z > contactZ
+            : prev.z >= contactZ && s.Position.z < contactZ;
+        if (!crossed) return false;
+
+        // where it crossed
+        float t = (contactZ - prev.z) / dz;
+        Vector3 hit = Vector3.Lerp(prev, s.Position, t);
+
+        bool withinNet = Mathf.Abs(hit.x) <= PingPongSpec.NetHalfWidth
+                      && hit.y > PingPongSpec.TableHeight
+                      && hit.y < PingPongSpec.TableHeight + PingPongSpec.NetHeight;
+        if (!withinNet) return false;
+
+        Vector3 v = s.Velocity;
+        v.z = -v.z * PingPongSpec.NetRestitution;
+        v.x *= PingPongSpec.NetDamping;
+        v.y *= PingPongSpec.NetDamping;
+
+        s.Position = hit;
+        s.Velocity = v;
+        return true;
+    }
+
     static void StepRolling(ref BallState s, float dt)
     {
         Vector3 v = s.Velocity;
@@ -87,9 +124,13 @@ public static class BallPhysics
             return;
         }
 
+        Vector3 prev = s.Position;
+
         v -= v / speed * slowdown;      // shrink speed, keep direction
         s.Position += v * dt;
         s.Velocity = v;
+
+        CollideNet(ref s, prev);
 
         if (!IsOverTable(s.Position))
             s.Phase = BallPhase.InFlight;   // rolled off the edge: start falling
