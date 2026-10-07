@@ -17,9 +17,28 @@ public class BallMachine : MonoBehaviour
     [SerializeField] private float elevationJitter = 1f;
     [SerializeField] private float sideJitter = 3f;
 
+    [Header("Spin (revolutions per second)")]
+    [SerializeField] private float topspin = 0f;     // + topspin, - backspin
+    [SerializeField] private float sidespin = 0f;    // + curves toward the player's right
+    [SerializeField] private float spinJitter = 2f;
+
     [Header("Auto fire (F = fire once, R = toggle auto)")]
     [SerializeField] private bool autoFire = false;
     [SerializeField] private float fireInterval = 1.5f;
+
+    public Vector3 LaunchPosition => transform.position;
+
+    public Vector3 NominalVelocity() => LaunchDirection(elevation, sideAngle) * speed;
+
+    public Vector3 NominalSpin() => SpinVector(LaunchDirection(elevation, sideAngle), topspin, sidespin);
+
+    // Converts "topspin/sidespin in rev/s" into an angular velocity vector for a ball moving in 'direction'
+    static Vector3 SpinVector(Vector3 direction, float topRps, float sideRps)
+    {
+        Vector3 horizontal = new Vector3(direction.x, 0f, direction.z).normalized;
+        Vector3 topspinAxis = Vector3.Cross(Vector3.up, horizontal);
+        return (topspinAxis * topRps - Vector3.up * sideRps) * PingPongSpec.RevsToRadians;
+    }
 
     private float fireTimer;
 
@@ -48,12 +67,15 @@ public class BallMachine : MonoBehaviour
         float s = speed + Random.Range(-speedJitter, speedJitter);
         float e = elevation + Random.Range(-elevationJitter, elevationJitter);
         float a = sideAngle + Random.Range(-sideJitter, sideJitter);
+        float top = topspin + Random.Range(-spinJitter, spinJitter);
+        float side = sidespin + Random.Range(-spinJitter, spinJitter);
 
-        Vector3 velocity = LaunchDirection(e, a) * s;
+        Vector3 direction = LaunchDirection(e, a);
+        Vector3 velocity = direction * s;
+        Vector3 spin = SpinVector(direction, top, side);
 
         BallSimulator ball = Instantiate(ballPrefab);
-        ball.Launch(transform.position, velocity);
-        Destroy(ball.gameObject, ballLifetime);
+        ball.Launch(transform.position, velocity, spin);
     }
 
     // The machine fires toward -z, i.e. toward the player.

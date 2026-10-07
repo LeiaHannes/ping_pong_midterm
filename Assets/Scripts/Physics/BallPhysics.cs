@@ -31,11 +31,14 @@ public static class BallPhysics
         Vector3 prev = s.Position;
 
         Vector3 v = s.Velocity;
+        Vector3 w = s.AngularVelocity;
         Vector3 accel = Vector3.down * PingPongSpec.Gravity
-                      - PingPongSpec.DragK * v.magnitude * v;
+                      - PingPongSpec.DragK * v.magnitude * v
+                      + PingPongSpec.MagnusK * Vector3.Cross(w, v);
         v += accel * dt;
         s.Position += v * dt;
         s.Velocity = v;
+        s.AngularVelocity = w * (1f - PingPongSpec.SpinDecay * dt);
 
         if (CollideNet(ref s, prev))
             return;
@@ -46,27 +49,49 @@ public static class BallPhysics
         // Table: the ball crossed the surface from above during this substep, while over the table
         if (prev.y >= tableContactY && s.Position.y < tableContactY && IsOverTable(s.Position))
         {
-            Bounce(ref s, tableContactY, PingPongSpec.TableRestitution);
+            Bounce(ref s, tableContactY, PingPongSpec.TableRestitution, PingPongSpec.TableFriction);
             return;
         }
 
         // Floor: bouncing there to rest means the ball is dead
         if (s.Position.y < r)
         {
-            Bounce(ref s, r, PingPongSpec.FloorRestitution);
+            Bounce(ref s, r, PingPongSpec.FloorRestitution, PingPongSpec.FloorFriction);
             if (s.Phase == BallPhase.Resting)
                 s.Phase = BallPhase.Dead;
         }
     }
 
-    static void Bounce(ref BallState s, float contactY, float restitution)
+    static void Bounce(ref BallState s, float contactY, float restitution, float friction)
     {
+        float r = PingPongSpec.BallRadius;
         Vector3 p = s.Position;
         Vector3 v = s.Velocity;
+        Vector3 w = s.AngularVelocity;
 
-        p.y = contactY;                 // put the ball back on the surface
-        v.y = -v.y * restitution;       // reverse and shrink vertical speed
-        // Horizontal velocity is unchanged for now; step 3 adds friction and spin.
+        p.y = contactY;
+
+        // Vertical: reverse and shrink. Remember how hard it hit (velocity change, always positive).
+        float vyIn = v.y;
+        v.y = -vyIn * restitution;
+        float normalImpulse = (1f + restitution) * -vyIn;
+
+        // Horizontal: how fast is the contact point sliding across the surface?
+        Vector3 contactOffset = new Vector3(0f, -r, 0f);
+        Vector3 slip = v + Vector3.Cross(w, contactOffset);
+        slip.y = 0f;
+
+        // Velocity change that would stop the slip completely (hollow ball: 2/5 of the slip)...
+        Vector3 rollImpulse = -slip * (2f / 5f);
+        // ...but friction can only push so hard
+        float maxFriction = friction * normalImpulse;
+        Vector3 impulse = rollImpulse.magnitude <= maxFriction
+            ? rollImpulse
+            : rollImpulse.normalized * maxFriction;
+
+        // Friction changes both velocity and spin
+        v += impulse;
+        w += Vector3.Cross(contactOffset, impulse) / (2f / 3f * r * r);
 
         if (v.y < PingPongSpec.RestSpeed)
         {
@@ -76,6 +101,7 @@ public static class BallPhysics
 
         s.Position = p;
         s.Velocity = v;
+        s.AngularVelocity = w;
     }
 
     // true if the ball hit the net during this substep
@@ -108,6 +134,7 @@ public static class BallPhysics
 
         s.Position = hit;
         s.Velocity = v;
+        s.AngularVelocity *= PingPongSpec.NetDamping;
         return true;
     }
 
@@ -129,6 +156,7 @@ public static class BallPhysics
         v -= v / speed * slowdown;      // shrink speed, keep direction
         s.Position += v * dt;
         s.Velocity = v;
+        s.AngularVelocity = Vector3.Cross(Vector3.up, v) / PingPongSpec.BallRadius;
 
         CollideNet(ref s, prev);
 

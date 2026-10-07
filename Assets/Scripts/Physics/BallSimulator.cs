@@ -13,6 +13,7 @@ public class BallSimulator : MonoBehaviour
     [SerializeField] private float debugSpeed;
     [SerializeField] private float debugLastApex;     // height of last bounce peak above the table
     [SerializeField] private BallPhase debugPhase;
+    [SerializeField] private float debugSpinRps;
 
     private BallState state;
     private bool launched;
@@ -28,10 +29,10 @@ public class BallSimulator : MonoBehaviour
             Launch(transform.position, testVelocity);
     }
 
-    public void Launch(Vector3 position, Vector3 velocity)
+    public void Launch(Vector3 position, Vector3 velocity, Vector3 spin = default)
     {
         launched = true;
-        state = new BallState(position, velocity);
+        state = new BallState(position, velocity, spin);
         transform.position = position;
         prevPosition = position;
     }
@@ -44,6 +45,7 @@ public class BallSimulator : MonoBehaviour
         // Readouts
         debugSpeed = state.Velocity.magnitude;
         debugPhase = state.Phase;
+        debugSpinRps = state.AngularVelocity.magnitude / PingPongSpec.RevsToRadians;
         float vy = state.Velocity.y;
         if (prevVelocityY > 0f && vy <= 0f)   // was rising, now falling: that's the peak
             debugLastApex = state.Position.y - PingPongSpec.BallRadius - PingPongSpec.TableHeight;
@@ -58,13 +60,21 @@ public class BallSimulator : MonoBehaviour
     }
     void Update()
     {
-        if (!Interpolate)
+        // Position
+        if (Interpolate)
+        {
+            float alpha = (Time.time - Time.fixedTime) / Time.fixedDeltaTime;
+            transform.position = Vector3.Lerp(prevPosition, state.Position, Mathf.Clamp01(alpha));
+        }
+        else
         {
             transform.position = state.Position;
-            return;
         }
 
-        float alpha = (Time.time - Time.fixedTime) / Time.fixedDeltaTime;
-        transform.position = Vector3.Lerp(prevPosition, state.Position, Mathf.Clamp01(alpha));
+        // Visual spin
+        Vector3 w = state.AngularVelocity;
+        float degrees = w.magnitude * Mathf.Rad2Deg * Time.deltaTime;
+        if (degrees > 0f)
+            transform.rotation = Quaternion.AngleAxis(degrees, w.normalized) * transform.rotation;
     }
 }
