@@ -5,7 +5,6 @@ public class BallMachine : MonoBehaviour
 {
     [Header("Ball")]
     [SerializeField] private BallSimulator ballPrefab;
-    [SerializeField] private float ballLifetime = 5f;
 
     [Header("Launch")]
     [SerializeField] private float speed = 6f;          // m/s

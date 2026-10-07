@@ -44,4 +44,9 @@ public static class PingPongSpec
     // Bounce friction
     public const float TableFriction = 0.25f;
     public const float FloorFriction = 0.5f;
+
+    // Paddle
+    public const float PaddleRadius = 0.08f;
+    public const float PaddleRestitution = 0.85f;
+    public const float PaddleFriction = 0.6f;
 }

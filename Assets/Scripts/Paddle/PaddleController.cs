@@ -1,5 +1,7 @@
 using UnityEngine;
 
+[DefaultExecutionOrder(-100)]
+
 public class PaddleController : MonoBehaviour
 {
     [Header("Live readout")]

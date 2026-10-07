@@ -15,13 +15,20 @@ public class BallSimulator : MonoBehaviour
     [SerializeField] private BallPhase debugPhase;
     [SerializeField] private float debugSpinRps;
 
+    public static bool Interpolate = true;   // shared by all balls; toggled by debug keys
+
     private BallState state;
     private bool launched;
     private bool dying;
     private float prevVelocityY;
-    public BallState State => state;
-    public static bool Interpolate = true;   // shared by all balls; toggled by debug keys
     private Vector3 prevPosition;
+    private PaddleController paddle;              
+    public BallState State => state;
+
+    void Awake()                                
+    {
+        paddle = FindAnyObjectByType<PaddleController>();
+    }
 
     void Start()
     {
@@ -40,7 +47,13 @@ public class BallSimulator : MonoBehaviour
     void FixedUpdate()
     {
         prevPosition = state.Position;
-        BallPhysics.Simulate(ref state, Time.fixedDeltaTime);
+
+        // pass the paddle's motion for this tick into the physics
+        PaddleMotion? motion = null;
+        if (paddle != null)
+            motion = new PaddleMotion(paddle.Previous, paddle.Current, Time.fixedDeltaTime);
+
+        BallPhysics.Simulate(ref state, Time.fixedDeltaTime, motion);
 
         // Readouts
         debugSpeed = state.Velocity.magnitude;
@@ -58,6 +71,7 @@ public class BallSimulator : MonoBehaviour
             Destroy(gameObject, deadLinger);
         }
     }
+
     void Update()
     {
         // Position

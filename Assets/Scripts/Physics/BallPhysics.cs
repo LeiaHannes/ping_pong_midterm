@@ -5,19 +5,23 @@ public static class BallPhysics
 {
     public const float SubstepDt = 0.001f;   // 1 ms
 
-    public static void Simulate(ref BallState state, float totalDt)
+    public static void Simulate(ref BallState state, float totalDt, PaddleMotion? paddle = null)
     {
         int steps = Mathf.Max(1, Mathf.RoundToInt(totalDt / SubstepDt));
         float dt = totalDt / steps;
         for (int i = 0; i < steps; i++)
-            Step(ref state, dt);
+        {
+            float t0 = (float)i / steps;         // where this substep starts within the tick (0..1)
+            float t1 = (float)(i + 1) / steps;   // where it ends
+            Step(ref state, dt, paddle, t0, t1);
+        }
     }
 
-    static void Step(ref BallState s, float dt)
+    static void Step(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1)
     {
         switch (s.Phase)
         {
-            case BallPhase.InFlight: StepFlight(ref s, dt); break;
+            case BallPhase.InFlight: StepFlight(ref s, dt, paddle, t0, t1); break;
             case BallPhase.Resting: StepRolling(ref s, dt); break;
             case BallPhase.Dead: return;
         }
@@ -26,7 +30,7 @@ public static class BallPhysics
             s.Phase = BallPhase.Dead;
     }
 
-    static void StepFlight(ref BallState s, float dt)
+    static void StepFlight(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1)
     {
         Vector3 prev = s.Position;
 
@@ -39,6 +43,9 @@ public static class BallPhysics
         s.Position += v * dt;
         s.Velocity = v;
         s.AngularVelocity = w * (1f - PingPongSpec.SpinDecay * dt);
+
+        if (paddle.HasValue && CollidePaddle(ref s, prev, paddle.Value, t0, t1))
+            return;
 
         if (CollideNet(ref s, prev))
             return;
@@ -64,44 +71,19 @@ public static class BallPhysics
 
     static void Bounce(ref BallState s, float contactY, float restitution, float friction)
     {
-        float r = PingPongSpec.BallRadius;
         Vector3 p = s.Position;
-        Vector3 v = s.Velocity;
-        Vector3 w = s.AngularVelocity;
-
         p.y = contactY;
+        s.Position = p;
 
-        // Vertical: reverse and shrink. Remember how hard it hit (velocity change, always positive).
-        float vyIn = v.y;
-        v.y = -vyIn * restitution;
-        float normalImpulse = (1f + restitution) * -vyIn;
+        ApplyContact(ref s, Vector3.up, Vector3.zero, restitution, friction);
 
-        // Horizontal: how fast is the contact point sliding across the surface?
-        Vector3 contactOffset = new Vector3(0f, -r, 0f);
-        Vector3 slip = v + Vector3.Cross(w, contactOffset);
-        slip.y = 0f;
-
-        // Velocity change that would stop the slip completely (hollow ball: 2/5 of the slip)...
-        Vector3 rollImpulse = -slip * (2f / 5f);
-        // ...but friction can only push so hard
-        float maxFriction = friction * normalImpulse;
-        Vector3 impulse = rollImpulse.magnitude <= maxFriction
-            ? rollImpulse
-            : rollImpulse.normalized * maxFriction;
-
-        // Friction changes both velocity and spin
-        v += impulse;
-        w += Vector3.Cross(contactOffset, impulse) / (2f / 3f * r * r);
-
-        if (v.y < PingPongSpec.RestSpeed)
+        if (s.Velocity.y < PingPongSpec.RestSpeed)
         {
+            Vector3 v = s.Velocity;
             v.y = 0f;
+            s.Velocity = v;
             s.Phase = BallPhase.Resting;
         }
-
-        s.Position = p;
-        s.Velocity = v;
-        s.AngularVelocity = w;
     }
 
     // true if the ball hit the net during this substep
@@ -167,4 +149,70 @@ public static class BallPhysics
     static bool IsOverTable(Vector3 p) =>
         Mathf.Abs(p.x) <= PingPongSpec.TableWidth / 2f &&
         Mathf.Abs(p.z) <= PingPongSpec.TableLength / 2f;
+
+    // Ball hits a surface. 'normal' points from the surface toward the ball; the surface moves at surfaceVelocity.
+    static void ApplyContact(ref BallState s, Vector3 normal, Vector3 surfaceVelocity, float restitution, float friction)
+    {
+        float r = PingPongSpec.BallRadius;
+        Vector3 u = s.Velocity - surfaceVelocity;      // velocity relative to the surface
+        float un = Vector3.Dot(u, normal);             // negative = approaching
+        if (un >= 0f) return;                          // already moving apart
+
+        // Normal direction: reverse and shrink
+        float normalImpulse = -(1f + restitution) * un;
+        Vector3 normalChange = normalImpulse * normal;
+
+        // Along the surface: how fast is the contact point sliding?
+        Vector3 contactOffset = -normal * r;
+        Vector3 slip = u + Vector3.Cross(s.AngularVelocity, contactOffset);
+        slip -= Vector3.Dot(slip, normal) * normal;    // keep only the part along the surface
+
+        Vector3 rollImpulse = -slip * (2f / 5f);
+        float maxFriction = friction * normalImpulse;
+        Vector3 frictionChange = rollImpulse.magnitude <= maxFriction
+            ? rollImpulse
+            : rollImpulse.normalized * maxFriction;
+
+        s.Velocity += normalChange + frictionChange;
+        s.AngularVelocity += Vector3.Cross(contactOffset, frictionChange) / (2f / 3f * r * r);
+    }
+
+    static bool CollidePaddle(ref BallState s, Vector3 prevBall, PaddleMotion m, float t0, float t1)
+    {
+        float r = PingPongSpec.BallRadius;
+        PaddlePose a = m.At(t0);   // paddle at the start of this substep
+        PaddlePose b = m.At(t1);   // paddle at the end
+
+        // Signed distance of the ball center from the face plane, before and after
+        float d0 = Vector3.Dot(prevBall - a.Position, a.Normal);
+        float d1 = Vector3.Dot(s.Position - b.Position, b.Normal);
+
+        float side = d0 >= 0f ? 1f : -1f;    // +1 = forehand face, -1 = backhand face
+        float gap0 = side * d0 - r;          // >= 0 means not touching
+        float gap1 = side * d1 - r;
+        if (gap0 < 0f || gap1 >= 0f) return false;   // didn't go from apart to touching
+
+        // Exactly when during the substep did they touch?
+        float f = gap0 / (gap0 - gap1);
+        PaddlePose c = m.At(Mathf.Lerp(t0, t1, f));
+        Vector3 ballAtContact = Vector3.Lerp(prevBall, s.Position, f);
+
+        // Is the contact point on the blade, or did the ball pass beside it?
+        Vector3 fromCenter = ballAtContact - c.Position;
+        Vector3 inPlane = fromCenter - Vector3.Dot(fromCenter, c.Normal) * c.Normal;
+        if (inPlane.magnitude > PingPongSpec.PaddleRadius) return false;
+
+        Vector3 normal = side * c.Normal;
+
+        // Velocity of that point on the blade over the tick (includes paddle rotation)
+        Vector3 local = Quaternion.Inverse(c.Rotation) * inPlane;
+        Vector3 pointFrom = m.From.Position + m.From.Rotation * local;
+        Vector3 pointTo = m.To.Position + m.To.Rotation * local;
+        Vector3 surfaceVelocity = (pointTo - pointFrom) / m.Duration;
+
+        // Place the ball touching the face, then bounce it
+        s.Position = c.Position + inPlane + normal * r;
+        ApplyContact(ref s, normal, surfaceVelocity, PingPongSpec.PaddleRestitution, PingPongSpec.PaddleFriction);
+        return true;
+    }
 }
