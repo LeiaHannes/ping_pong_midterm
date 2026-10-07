@@ -19,6 +19,8 @@ public class BallSimulator : MonoBehaviour
     private bool dying;
     private float prevVelocityY;
     public BallState State => state;
+    public static bool Interpolate = true;   // shared by all balls; toggled by debug keys
+    private Vector3 prevPosition;
 
     void Start()
     {
@@ -31,12 +33,13 @@ public class BallSimulator : MonoBehaviour
         launched = true;
         state = new BallState(position, velocity);
         transform.position = position;
+        prevPosition = position;
     }
 
     void FixedUpdate()
     {
+        prevPosition = state.Position;
         BallPhysics.Simulate(ref state, Time.fixedDeltaTime);
-        transform.position = state.Position;
 
         // Readouts
         debugSpeed = state.Velocity.magnitude;
@@ -52,5 +55,16 @@ public class BallSimulator : MonoBehaviour
             dying = true;
             Destroy(gameObject, deadLinger);
         }
+    }
+    void Update()
+    {
+        if (!Interpolate)
+        {
+            transform.position = state.Position;
+            return;
+        }
+
+        float alpha = (Time.time - Time.fixedTime) / Time.fixedDeltaTime;
+        transform.position = Vector3.Lerp(prevPosition, state.Position, Mathf.Clamp01(alpha));
     }
 }
