@@ -8,7 +8,7 @@ public class BallMachine : MonoBehaviour
 
     [Header("Launch")]
     [SerializeField] private float speed = 6f;          // m/s
-    [SerializeField] private float elevation = 10f;     // degrees above horizontal
+    [SerializeField] private float elevation = 15f;     // degrees above horizontal
     [SerializeField] private float sideAngle = 0f;      // degrees, + = toward player's right
 
     [Header("Randomness (+/-)")]

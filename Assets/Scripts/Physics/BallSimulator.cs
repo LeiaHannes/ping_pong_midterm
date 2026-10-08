@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 public class BallSimulator : MonoBehaviour
 {
@@ -24,6 +25,11 @@ public class BallSimulator : MonoBehaviour
     private Vector3 prevPosition;
     private PaddleController paddle;              
     public BallState State => state;
+
+    public static readonly List<BallSimulator> Active = new List<BallSimulator>();
+
+    void OnEnable() => Active.Add(this);
+    void OnDisable() => Active.Remove(this);
 
     void Awake()                                
     {
