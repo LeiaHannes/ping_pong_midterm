@@ -1,5 +1,6 @@
-using UnityEngine;
+using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 public class BallSimulator : MonoBehaviour
 {
@@ -27,6 +28,11 @@ public class BallSimulator : MonoBehaviour
     public BallState State => state;
 
     public static readonly List<BallSimulator> Active = new List<BallSimulator>();
+
+    public static event Action<BallSimulator, Contact> AnyContact;
+    public static event Action<BallSimulator> AnyDied;
+
+    private readonly List<Contact> contacts = new List<Contact>();
 
     void OnEnable() => Active.Add(this);
     void OnDisable() => Active.Remove(this);
@@ -59,7 +65,10 @@ public class BallSimulator : MonoBehaviour
         if (paddle != null)
             motion = new PaddleMotion(paddle.Previous, paddle.Current, Time.fixedDeltaTime);
 
-        BallPhysics.Simulate(ref state, Time.fixedDeltaTime, motion);
+        contacts.Clear();
+        BallPhysics.Simulate(ref state, Time.fixedDeltaTime, motion, contacts);
+        foreach (Contact c in contacts)
+            AnyContact?.Invoke(this, c);
 
         // Readouts
         debugSpeed = state.Velocity.magnitude;
@@ -74,6 +83,7 @@ public class BallSimulator : MonoBehaviour
         if (state.Phase == BallPhase.Dead && !dying)
         {
             dying = true;
+            AnyDied?.Invoke(this);
             Destroy(gameObject, deadLinger);
         }
     }

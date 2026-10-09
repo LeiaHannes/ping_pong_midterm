@@ -1,28 +1,31 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using System.Collections.Generic;
 
 public static class BallPhysics
 {
     public const float SubstepDt = 0.001f;   // 1 ms
 
-    public static void Simulate(ref BallState state, float totalDt, PaddleMotion? paddle = null)
+    public static void Simulate(ref BallState state, float totalDt,
+                            PaddleMotion? paddle = null, List<Contact> contacts = null)
     {
         int steps = Mathf.Max(1, Mathf.RoundToInt(totalDt / SubstepDt));
         float dt = totalDt / steps;
         for (int i = 0; i < steps; i++)
         {
-            float t0 = (float)i / steps;         // where this substep starts within the tick (0..1)
-            float t1 = (float)(i + 1) / steps;   // where it ends
-            Step(ref state, dt, paddle, t0, t1);
+            float t0 = (float)i / steps;
+            float t1 = (float)(i + 1) / steps;
+            Step(ref state, dt, paddle, t0, t1, contacts);
         }
     }
 
-    static void Step(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1)
+    static void Step(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1,
+                 List<Contact> contacts)
     {
         switch (s.Phase)
         {
-            case BallPhase.InFlight: StepFlight(ref s, dt, paddle, t0, t1); break;
-            case BallPhase.Resting: StepRolling(ref s, dt); break;
+            case BallPhase.InFlight: StepFlight(ref s, dt, paddle, t0, t1, contacts); break;
+            case BallPhase.Resting: StepRolling(ref s, dt, contacts); break;
             case BallPhase.Dead: return;
         }
 
@@ -30,7 +33,7 @@ public static class BallPhysics
             s.Phase = BallPhase.Dead;
     }
 
-    static void StepFlight(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1)
+    static void StepFlight(ref BallState s, float dt, PaddleMotion? paddle, float t0, float t1, List<Contact> contacts)
     {
         Vector3 prev = s.Position;
 
@@ -45,25 +48,31 @@ public static class BallPhysics
         s.AngularVelocity = w * (1f - PingPongSpec.SpinDecay * dt);
 
         if (paddle.HasValue && CollidePaddle(ref s, prev, paddle.Value, t0, t1))
-            return;
-
-        if (CollideNet(ref s, prev))
-            return;
-
-        float r = PingPongSpec.BallRadius;
-        float tableContactY = PingPongSpec.TableHeight + r;  // ball center height when touching table
-
-        // Table: the ball crossed the surface from above during this substep, while over the table
-        if (prev.y >= tableContactY && s.Position.y < tableContactY && IsOverTable(s.Position))
         {
-            Bounce(ref s, tableContactY, PingPongSpec.TableRestitution, PingPongSpec.TableFriction);
+            contacts?.Add(new Contact(ContactSurface.Paddle, s));
             return;
         }
 
-        // Floor: bouncing there to rest means the ball is dead
+        if (CollideNet(ref s, prev))
+        {
+            contacts?.Add(new Contact(ContactSurface.Net, s));
+            return;
+        }
+
+        float r = PingPongSpec.BallRadius;
+        float tableContactY = PingPongSpec.TableHeight + r;
+
+        if (prev.y >= tableContactY && s.Position.y < tableContactY && IsOverTable(s.Position))
+        {
+            Bounce(ref s, tableContactY, PingPongSpec.TableRestitution, PingPongSpec.TableFriction);
+            contacts?.Add(new Contact(ContactSurface.Table, s));
+            return;
+        }
+
         if (s.Position.y < r)
         {
             Bounce(ref s, r, PingPongSpec.FloorRestitution, PingPongSpec.FloorFriction);
+            contacts?.Add(new Contact(ContactSurface.Floor, s));
             if (s.Phase == BallPhase.Resting)
                 s.Phase = BallPhase.Dead;
         }
@@ -120,7 +129,7 @@ public static class BallPhysics
         return true;
     }
 
-    static void StepRolling(ref BallState s, float dt)
+    static void StepRolling(ref BallState s, float dt, List<Contact> contacts)
     {
         Vector3 v = s.Velocity;
         float speed = v.magnitude;
@@ -140,7 +149,8 @@ public static class BallPhysics
         s.Velocity = v;
         s.AngularVelocity = Vector3.Cross(Vector3.up, v) / PingPongSpec.BallRadius;
 
-        CollideNet(ref s, prev);
+        if (CollideNet(ref s, prev))
+            contacts?.Add(new Contact(ContactSurface.Net, s));
 
         if (!IsOverTable(s.Position))
             s.Phase = BallPhase.InFlight;   // rolled off the edge: start falling
