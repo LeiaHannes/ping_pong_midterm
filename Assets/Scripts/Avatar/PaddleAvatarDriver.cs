@@ -20,6 +20,7 @@ public class PaddleAvatarDriver : MonoBehaviour, IAvatarSource
 
     [Header("Off hand (x is mirrored for handedness)")]
     [SerializeField] private Vector3 offHandOffset = new Vector3(0.3f, 0.3f, 0.15f);
+    [SerializeField] private SensorPaddleInput sensor;
 
     public AvatarPose GetPose()
     {
@@ -48,6 +49,12 @@ public class PaddleAvatarDriver : MonoBehaviour, IAvatarSource
                                         offHandOffset.z - swing * 0.1f);
         Vector3 offHand = torsoPos + torsoRot * handLocal
                         + Vector3.up * Mathf.Sin(Time.time * 2f) * 0.01f;
+        // Use the tracked off hand when camera input is active and the hand is visible
+        if (sensor != null && sensor.isActiveAndEnabled &&
+            sensor.TryGetOffHandPosition(out Vector3 tracked))
+        {
+            offHand = tracked;
+        }
 
         return new AvatarPose(torsoPos, torsoRot, headRot, offHand);
     }

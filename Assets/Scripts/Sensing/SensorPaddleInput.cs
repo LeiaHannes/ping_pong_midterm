@@ -5,6 +5,7 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
 {
     [SerializeField] private PoseReceiver receiver;
     [SerializeField] private bool rightHanded = true;
+    [SerializeField] private ImuReceiver imu;
 
     [Header("Mapping")]
     [SerializeField] private Vector3 bodyOrigin = new Vector3(0f, 1.0f, -2.0f);
@@ -12,6 +13,7 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
     [SerializeField] private float lateralScale = 2.3f;    // meters per camera-frame width when stepping sideways
     [SerializeField] private float verticalScale = 1.3f;   // meters per camera-frame height when crouching
     [SerializeField] private float gripLength = 0.12f;     // wrist to blade center, along the forearm
+    [SerializeField] private float offHandReach = 0.05f;   // wrist to the center of the off hand, along the forearm
     [SerializeField] private float minVisibility = 0.5f;
 
     [Header("Calibration (C = calibrate after a countdown)")]
@@ -51,6 +53,17 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
     private Vector3 prevFiltered;
     private Vector3 lastRawVel;
 
+    // The off hand only needs smoothing, not prediction: nothing collides with it
+    private readonly OneEuroFilter3 offHandFilter = new OneEuroFilter3();
+    private double offHandLastTime = -1;
+    private Vector3 offHandPos;
+    private bool hasOffHand;
+
+    int PaddleWrist => rightHanded ? 16 : 15;
+    int PaddleElbow => rightHanded ? 14 : 13;
+    int OffWrist => rightHanded ? 15 : 16;
+    int OffElbow => rightHanded ? 13 : 14;
+
     void Update()
     {
         var mouse = Mouse.current;
@@ -85,6 +98,8 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         // Keep the filter settings live-tunable from the Inspector
         filter.MinCutoff = minCutoff;
         filter.Beta = beta;
+        offHandFilter.MinCutoff = minCutoff;
+        offHandFilter.Beta = beta;
     }
 
     void Calibrate()
@@ -96,9 +111,16 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         }
         rootAtCalibration = new Vector2(p.root[0], p.root[1]);
         calibrationOffset = Vector3.zero;
-        calibrationOffset = readyPosition - MapToTable(p);
+        calibrationOffset = readyPosition - MapHand(p, PaddleWrist, PaddleElbow, gripLength);
+
         filter.Reset();
         hasPose = false;
+        offHandFilter.Reset();
+        hasOffHand = false;
+
+        if (imu != null)
+            imu.CalibrateHeading();
+
         Debug.Log("Paddle calibrated");
     }
 
@@ -108,6 +130,12 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         double now = Time.timeAsDouble;
         Quaternion rotation = Quaternion.Euler(tilt, aim, 0f);
 
+        if (imu != null && imu.isActiveAndEnabled &&
+            imu.TryGetRotation(Time.fixedDeltaTime, out Quaternion imuRotation))
+        {
+            rotation = imuRotation;
+        }
+
         // Take in a new camera sample if one has arrived
         if (receiver.TryGetLatest(out PoseMessage p) && p.t != lastMessageTime)
         {
@@ -116,10 +144,9 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
                 : Mathf.Max(0.001f, (float)(p.t - lastMessageTime));
             lastMessageTime = p.t;
 
-            int wrist = rightHanded ? 16 : 15;
-            if (p.vis[wrist] >= minVisibility)
+            if (p.vis[PaddleWrist] >= minVisibility)
             {
-                Vector3 filtered = filter.Filter(MapToTable(p), dt);
+                Vector3 filtered = filter.Filter(MapHand(p, PaddleWrist, PaddleElbow, gripLength), dt);
                 if (!hasPose)
                 {
                     shownPos = filtered;
@@ -166,15 +193,32 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         return new PaddlePose(shownPos, rotation);
     }
 
-    Vector3 MapToTable(PoseMessage p)
+    // World position of the tracked off hand. Returns false while it isn't visible.
+    public bool TryGetOffHandPosition(out Vector3 position)
     {
-        int wristIndex = rightHanded ? 16 : 15;
-        int elbowIndex = rightHanded ? 14 : 13;
+        if (receiver.TryGetLatest(out PoseMessage p) && p.t != offHandLastTime)
+        {
+            float dt = offHandLastTime < 0
+                ? 1f / 30f
+                : Mathf.Max(0.001f, (float)(p.t - offHandLastTime));
+            offHandLastTime = p.t;
 
-        // The blade center sits a little beyond the wrist, along the forearm
+            hasOffHand = p.vis[OffWrist] >= minVisibility;
+            if (hasOffHand)
+                offHandPos = offHandFilter.Filter(MapHand(p, OffWrist, OffElbow, offHandReach), dt);
+        }
+
+        position = offHandPos;
+        return hasOffHand;
+    }
+
+    // Maps a tracked hand into table coordinates
+    Vector3 MapHand(PoseMessage p, int wristIndex, int elbowIndex, float extend)
+    {
+        // The point of interest sits a little beyond the wrist, along the forearm
         Vector3 wrist = p.Landmark(wristIndex);
         Vector3 forearm = (wrist - p.Landmark(elbowIndex)).normalized;
-        Vector3 hand = wrist + forearm * gripLength;
+        Vector3 hand = wrist + forearm * extend;
 
         // Stepping sideways or crouching, measured from the calibration stance
         Vector3 step = new Vector3(

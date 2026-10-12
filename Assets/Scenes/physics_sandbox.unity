@@ -684,6 +684,7 @@ GameObject:
   - component: {fileID: 297162130}
   - component: {fileID: 297162132}
   - component: {fileID: 297162131}
+  - component: {fileID: 297162133}
   m_Layer: 0
   m_Name: Paddle
   m_TagString: Untagged
@@ -745,6 +746,43 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PaddleController
   debugSpeed: 0
+--- !u!114 &297162133
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 297162129}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f683bff1fc7b971458d8b7913ebf27f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SensorPaddleInput
+  receiver: {fileID: 352313391}
+  rightHanded: 1
+  imu: {fileID: 352313393}
+  bodyOrigin: {x: 0, y: 1, z: -2}
+  reachScale: {x: 1.2, y: 1.2, z: 1.5}
+  lateralScale: 2.3
+  verticalScale: 1.3
+  gripLength: 0.12
+  offHandReach: 0.05
+  minVisibility: 0.5
+  readyPosition: {x: 0.3, y: 0.95, z: -1.55}
+  countdownSeconds: 3
+  calibrationOffset: {x: 0, y: 0, z: 0}
+  minCutoff: 1.5
+  beta: 0.3
+  maxExtrapolation: 0.05
+  leadTime: 0
+  restSpeed: 0.3
+  fullSpeed: 1
+  followTime: 0.025
+  tiltStep: 5
+  aimSpeed: 90
+  tilt: 0
+  aim: 0
+  debugSampleSpeed: 0
 --- !u!1001 &339361088
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -807,6 +845,74 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 827826068884831736, guid: 01431439c5276f74b84dd2d4bfc2efae, type: 3}
   m_PrefabInstance: {fileID: 339361088}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &352313390
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 352313392}
+  - component: {fileID: 352313391}
+  - component: {fileID: 352313393}
+  m_Layer: 0
+  m_Name: Sensing
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &352313391
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 352313390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1feba987f0a3fa47bc86b21d815fa63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PoseReceiver
+  port: 5065
+  debugAgeMs: 0
+  debugRateHz: 0
+--- !u!4 &352313392
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 352313390}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.09067, y: 1.22708, z: 4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &352313393
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 352313390}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 10690a996c1863e4d8a1006450755bf7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ImuReceiver
+  port: 5066
+  invertYaw: 0
+  invertPitch: 0
+  invertRoll: 0
+  mountingEuler: {x: 90, y: 0, z: 0}
+  followSharpness: 40
+  debugYawPitchRoll: {x: 0, y: 0, z: 0}
+  debugRateHz: 0
 --- !u!1 &367662456
 GameObject:
   m_ObjectHideFlags: 0
@@ -1190,6 +1296,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1a7d4f6cdc30aeb419dd3bc1300147fe, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DebugControls
+  mouseInput: {fileID: 297162131}
+  sensorInput: {fileID: 297162133}
 --- !u!4 &460193107
 Transform:
   m_ObjectHideFlags: 0
@@ -3970,6 +4078,52 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1646343189}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1704850332
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1704850334}
+  - component: {fileID: 1704850333}
+  m_Layer: 0
+  m_Name: PoseAnchor
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1704850333
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1704850332}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ea850762968ca9f45a06f43579ad4bbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PoseStickFigure
+  receiver: {fileID: 352313391}
+  minVisibility: 0.5
+--- !u!4 &1704850334
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1704850332}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1, z: -2}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1784956997
 GameObject:
   m_ObjectHideFlags: 0
@@ -4642,6 +4796,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 297162130}
     - target: {fileID: 1313493717880791653, guid: 456b80b2c79b3b04dac0ccab39543919, type: 3}
+      propertyPath: sensor
+      value: 
+      objectReference: {fileID: 297162133}
+    - target: {fileID: 1313493717880791653, guid: 456b80b2c79b3b04dac0ccab39543919, type: 3}
       propertyPath: offHandOffset.z
       value: 0.35
       objectReference: {fileID: 0}
@@ -4716,3 +4874,5 @@ SceneRoots:
   - {fileID: 1929849530}
   - {fileID: 948324148}
   - {fileID: 1784957000}
+  - {fileID: 352313392}
+  - {fileID: 1704850334}
