@@ -1,8 +1,13 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+
 public class DebugControls : MonoBehaviour
 {
+
+    [SerializeField] private MousePaddleInput mouseInput;
+    [SerializeField] private SensorPaddleInput sensorInput;
+
     void Update()
     {
         var kb = Keyboard.current;
@@ -17,6 +22,13 @@ public class DebugControls : MonoBehaviour
         {
             BallSimulator.Interpolate = !BallSimulator.Interpolate;
             Debug.Log($"Interpolation: {(BallSimulator.Interpolate ? "ON" : "OFF")}");
+        }
+
+        if (kb.mKey.wasPressedThisFrame && mouseInput != null && sensorInput != null)
+        {
+            mouseInput.enabled = !mouseInput.enabled;
+            sensorInput.enabled = !mouseInput.enabled;
+            Debug.Log($"Paddle input: {(mouseInput.enabled ? "mouse" : "camera")}");
         }
     }
 

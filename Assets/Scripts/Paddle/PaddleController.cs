@@ -7,7 +7,7 @@ public class PaddleController : MonoBehaviour
     [Header("Live readout")]
     [SerializeField] private float debugSpeed;
 
-    private IPaddleInput input;
+    private IPaddleInput[] inputs;
     private PaddlePose previous;
     private PaddlePose current;
     private Vector3 velocity;
@@ -18,16 +18,25 @@ public class PaddleController : MonoBehaviour
 
     void Awake()
     {
-        input = GetComponent<IPaddleInput>();
-        if (input == null)
+        inputs = GetComponents<IPaddleInput>();
+        if (inputs.Length == 0)
             Debug.LogError("PaddleController needs a paddle input component on the same object.");
 
         current = new PaddlePose(transform.position, transform.rotation);
         previous = current;
     }
 
+    IPaddleInput ActiveInput()
+    {
+        foreach (IPaddleInput i in inputs)
+            if (i is MonoBehaviour mb && mb.enabled)
+                return i;
+        return null;
+    }
+
     void FixedUpdate()
     {
+        IPaddleInput input = ActiveInput();
         if (input == null) return;
 
         previous = current;
