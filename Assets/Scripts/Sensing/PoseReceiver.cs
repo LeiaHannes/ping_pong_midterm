@@ -14,6 +14,7 @@ public class PoseMessage
     public float[] root;  // hip center in the camera image: [right, up], roughly -0.5..0.5
 
     public Vector3 Landmark(int i) => new Vector3(lm[3 * i], lm[3 * i + 1], lm[3 * i + 2]);
+    public float[] pn;    // paddle tag's face direction (Unity axes); null when not visible
 }
 
 public class PoseReceiver : MonoBehaviour

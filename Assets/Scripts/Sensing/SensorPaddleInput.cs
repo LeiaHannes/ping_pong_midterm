@@ -15,11 +15,14 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
     [SerializeField] private float gripLength = 0.12f;     // wrist to blade center, along the forearm
     [SerializeField] private float offHandReach = 0.05f;   // wrist to the center of the off hand, along the forearm
     [SerializeField] private float minVisibility = 0.5f;
+    [SerializeField] private float wristToBlade = 0.18f;   // wrist to blade center, along the handle (used with the IMU)
 
     [Header("Calibration (C = calibrate after a countdown)")]
     [SerializeField] private Vector3 readyPosition = new Vector3(0.3f, 0.95f, -1.55f);
     [SerializeField] private float countdownSeconds = 3f;
     [SerializeField] private Vector3 calibrationOffset;
+    [SerializeField] private float tagSampleWindow = 0.5f;   // seconds before calibration to average the paddle tag
+    [SerializeField] private int minTagSamples = 5;
 
     [Header("Smoothing and prediction")]
     [SerializeField] private float minCutoff = 1.2f;
@@ -59,6 +62,11 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
     private Vector3 offHandPos;
     private bool hasOffHand;
 
+    private Vector3 tagNormalSum;
+    private int tagSamples;
+    private double lastTagSampleTime = -1;
+    private Vector3 lastForearm = Vector3.up;
+
     int PaddleWrist => rightHanded ? 16 : 15;
     int PaddleElbow => rightHanded ? 14 : 13;
     int OffWrist => rightHanded ? 15 : 16;
@@ -83,16 +91,32 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
             if (kb.cKey.wasPressedThisFrame)
             {
                 calibrateAt = Time.unscaledTime + countdownSeconds;
+                tagNormalSum = Vector3.zero;
+                tagSamples = 0;
                 Debug.Log($"Calibrating in {countdownSeconds:F0} s: hold your ready position");
             }
         }
         tilt = Mathf.Clamp(tilt, -60f, 60f);
         aim = Mathf.Clamp(aim, -45f, 45f);
 
-        if (calibrateAt > 0f && Time.unscaledTime >= calibrateAt)
+        if (calibrateAt > 0f)
         {
-            calibrateAt = -1f;
-            Calibrate();
+            // Average the paddle tag's direction over the last moments of the countdown
+            if (Time.unscaledTime >= calibrateAt - tagSampleWindow &&
+                receiver.TryGetLatest(out PoseMessage tagMsg) &&
+                tagMsg.t != lastTagSampleTime && tagMsg.pn != null && tagMsg.pn.Length == 3)
+            {
+                lastTagSampleTime = tagMsg.t;
+                tagNormalSum += new Vector3(tagMsg.pn[0], tagMsg.pn[1], tagMsg.pn[2]);
+                tagSamples++;
+            }
+
+            // Countdown finished
+            if (Time.unscaledTime >= calibrateAt)
+            {
+                calibrateAt = -1f;
+                Calibrate();
+            }
         }
 
         // Keep the filter settings live-tunable from the Inspector
@@ -111,7 +135,8 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         }
         rootAtCalibration = new Vector2(p.root[0], p.root[1]);
         calibrationOffset = Vector3.zero;
-        calibrationOffset = readyPosition - MapHand(p, PaddleWrist, PaddleElbow, gripLength);
+        calibrationOffset = readyPosition - MapHand(p, PaddleWrist, PaddleElbow, 0f)
+                    - Vector3.up * wristToBlade;
 
         filter.Reset();
         hasPose = false;
@@ -119,7 +144,18 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         hasOffHand = false;
 
         if (imu != null)
-            imu.CalibrateHeading();
+        {
+            if (tagSamples >= minTagSamples)
+            {
+                imu.CalibrateHeadingFromTag(tagNormalSum.normalized);
+                Debug.Log($"Heading set from the paddle tag ({tagSamples} samples)");
+            }
+            else
+            {
+                imu.CalibrateHeading();
+                Debug.Log("Paddle tag not seen: assuming the paddle faces the table");
+            }
+        }
 
         Debug.Log("Paddle calibrated");
     }
@@ -130,11 +166,11 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         double now = Time.timeAsDouble;
         Quaternion rotation = Quaternion.Euler(tilt, aim, 0f);
 
-        if (imu != null && imu.isActiveAndEnabled &&
-            imu.TryGetRotation(Time.fixedDeltaTime, out Quaternion imuRotation))
-        {
+        Quaternion imuRotation = Quaternion.identity;
+        bool imuActive = imu != null && imu.isActiveAndEnabled &&
+                         imu.TryGetRotation(Time.fixedDeltaTime, out imuRotation);
+        if (imuActive)
             rotation = imuRotation;
-        }
 
         // Take in a new camera sample if one has arrived
         if (receiver.TryGetLatest(out PoseMessage p) && p.t != lastMessageTime)
@@ -146,7 +182,8 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
 
             if (p.vis[PaddleWrist] >= minVisibility)
             {
-                Vector3 filtered = filter.Filter(MapHand(p, PaddleWrist, PaddleElbow, gripLength), dt);
+                Vector3 filtered = filter.Filter(MapHand(p, PaddleWrist, PaddleElbow, 0f), dt);
+                lastForearm = (p.Landmark(PaddleWrist) - p.Landmark(PaddleElbow)).normalized;
                 if (!hasPose)
                 {
                     shownPos = filtered;
@@ -190,7 +227,11 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
         // Follow the target with a critically damped spring: smooth, and never overshoots
         shownPos = Vector3.SmoothDamp(shownPos, target, ref followVel, followTime,
                                       Mathf.Infinity, Time.fixedDeltaTime);
-        return new PaddlePose(shownPos, rotation);
+        // Blade center: up the handle from the wrist, along the IMU's orientation when available
+        Vector3 bladeOffset = imuActive
+            ? rotation * new Vector3(0f, wristToBlade, 0f)
+            : lastForearm * gripLength;
+        return new PaddlePose(shownPos + bladeOffset, rotation);
     }
 
     // World position of the tracked off hand. Returns false while it isn't visible.
