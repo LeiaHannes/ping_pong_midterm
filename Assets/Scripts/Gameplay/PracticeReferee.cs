@@ -39,6 +39,13 @@ public class PracticeReferee : MonoBehaviour
 
     void HandleContact(BallSimulator ball, Contact c)
     {
+        // The opponent sent it back: judge it as a brand-new incoming ball
+        if (c.Surface == ContactSurface.OpponentPaddle)
+        {
+            balls[ball] = new Tracker();
+            return;
+        }
+
         if (!balls.TryGetValue(ball, out Tracker t))
         {
             t = new Tracker();

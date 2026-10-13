@@ -25,7 +25,7 @@ public class SensorPaddleInput : MonoBehaviour, IPaddleInput
     [SerializeField] private int minTagSamples = 5;
 
     [Header("Smoothing and prediction")]
-    [SerializeField] private float minCutoff = 1.2f;
+    [SerializeField] private float minCutoff = 0.8f;
     [SerializeField] private float beta = 0.6f;
     [SerializeField] private float maxExtrapolation = 0.05f;   // seconds
     [SerializeField] private float leadTime = 0f;              // seconds to predict ahead

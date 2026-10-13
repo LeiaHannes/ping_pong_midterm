@@ -56,6 +56,15 @@ public class BallSimulator : MonoBehaviour
         prevPosition = position;
     }
 
+    // Instantly gives the ball a new velocity and spin, as if it were hit (used by the opponent)
+    public void Redirect(Vector3 velocity, Vector3 spin)
+    {
+        state.Velocity = velocity;
+        state.AngularVelocity = spin;
+        state.Phase = BallPhase.InFlight;
+        AnyContact?.Invoke(this, new Contact(ContactSurface.OpponentPaddle, state));
+    }
+
     void FixedUpdate()
     {
         prevPosition = state.Position;

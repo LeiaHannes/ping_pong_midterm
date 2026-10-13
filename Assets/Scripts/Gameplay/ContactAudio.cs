@@ -48,7 +48,7 @@ public class ContactAudio : MonoBehaviour
         AudioClip[] clips = c.Surface switch
         {
             ContactSurface.Table => tableClips,
-            ContactSurface.Paddle => paddleClips,
+            ContactSurface.Paddle or ContactSurface.OpponentPaddle => paddleClips,
             ContactSurface.Net => netClips,
             ContactSurface.Floor => floorClips,
             _ => null

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public enum ContactSurface { Table, Net, Paddle, Floor }
+public enum ContactSurface { Table, Net, Paddle, Floor, OpponentPaddle }
 
 public struct Contact
 {
