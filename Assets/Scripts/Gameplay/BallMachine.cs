@@ -24,6 +24,7 @@ public class BallMachine : MonoBehaviour
     [Header("Auto fire (F = fire once, R = toggle auto)")]
     [SerializeField] private bool autoFire = false;
     [SerializeField] private float fireInterval = 1.5f;
+    [SerializeField] private bool waitForRallyEnd = true;   // hold auto-fire while a ball is still in play
 
     public Vector3 LaunchPosition => transform.position;
 
@@ -52,13 +53,29 @@ public class BallMachine : MonoBehaviour
 
         if (autoFire)
         {
-            fireTimer += Time.deltaTime;
-            if (fireTimer >= fireInterval)
+            if (waitForRallyEnd && AnyBallInPlay())
             {
-                fireTimer -= fireInterval;
-                Fire();
+                fireTimer = 0f;   // count the interval from when the rally ends
+            }
+            else
+            {
+                fireTimer += Time.deltaTime;
+                if (fireTimer >= fireInterval)
+                {
+                    fireTimer -= fireInterval;
+                    Fire();
+                }
             }
         }
+    }
+
+    // True while any ball is still flying or rolling (dead balls are about to be removed)
+    static bool AnyBallInPlay()
+    {
+        foreach (BallSimulator b in BallSimulator.Active)
+            if (b.State.Phase != BallPhase.Dead)
+                return true;
+        return false;
     }
 
     public void Fire()
