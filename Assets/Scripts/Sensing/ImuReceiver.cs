@@ -222,6 +222,9 @@ public class ImuReceiver : MonoBehaviour
 
     void OnEnable()
     {
+        #if UNITY_WEBGL && !UNITY_EDITOR
+                return;   // browsers can't open UDP sockets or threads: sensor input is unavailable on the web
+        #endif
         client = new UdpClient(port);
         running = true;
         thread = new Thread(ReceiveLoop) { IsBackground = true };
