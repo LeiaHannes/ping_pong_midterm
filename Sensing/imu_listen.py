@@ -3,7 +3,7 @@ import socket
 import time
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind(("0.0.0.0", 5066))
+sock.bind(("0.0.0.0", 5067))
 print("Listening on port 5066...")
 
 count, timer = 0, time.perf_counter()
